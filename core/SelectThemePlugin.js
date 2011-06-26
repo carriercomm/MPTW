@@ -1,15 +1,21 @@
 /***
-|Name:|SelectThemePlugin|
+|Name:|SelectThemePluginMP|
 |Description:|Lets you easily switch theme and palette|
-|Version:|1.0.1 ($Rev: 3646 $)|
+|Version:|1.0.1 ($Rev: 3646 $) MP 02|
 |Date:|$Date: 2008-02-27 02:34:38 +1000 (Wed, 27 Feb 2008) $|
-|Source:|http://mptw.tiddlyspot.com/#SelectThemePlugin|
-|Author:|Simon Baird <simon.baird@gmail.com>|
+|OriginalSource:|http://mptw.tiddlyspot.com/#SelectThemePlugin|
+|OriginalAuthor:|Simon Baird <simon.baird@gmail.com>|
 |License:|http://mptw.tiddlyspot.com/#TheBSDLicense|
+|Author:|Mario Pietsch|
+
 !Notes
 * Borrows largely from ThemeSwitcherPlugin by Martin Budden http://www.martinswiki.com/#ThemeSwitcherPlugin
 * Theme is cookie based. But set a default by setting config.options.txtTheme in MptwConfigPlugin (for example)
 * Palette is not cookie based. It actually overwrites your ColorPalette tiddler when you select a palette, so beware. 
+
+*MP Added the label to applyTheme macro.
+*Made selectPalette tiddlySpace ready. 
+
 !Usage
 * {{{<<selectTheme>>}}} makes a dropdown selector
 * {{{<<selectPalette>>}}} makes a dropdown selector
@@ -17,13 +23,16 @@
 * {{{<<applyPalette>>}}} applies the current tiddler as a palette
 * {{{<<applyTheme TiddlerName>>}}} applies TiddlerName as a theme
 * {{{<<applyPalette TiddlerName>>}}} applies TiddlerName as a palette
+
+* {{{<<applyTheme TiddlerName label>>}}} applies TiddlerName as a theme and uses costumized button label
+* {{{<<applyTheme {{tiddler.title}} label>>}}} applies actual tiddler as a theme and uses costumized button label
 ***/
 //{{{
 
 config.macros.selectTheme = {
 	label: {
-		selectTheme:"select theme",
-		selectPalette:"select palette"
+      		selectTheme:"select theme",
+      		selectPalette:"select palette"
 	},
 	prompt: {
 		selectTheme:"Select the current theme",
@@ -79,25 +88,48 @@ config.macros.selectTheme.onClickTheme = function(ev)
 
 config.macros.selectTheme.updatePalette = function(title)
 {
+	var tiddlyspace = config.extensions.tiddlyspace;
+
 	if (title != "") {
-		store.deleteTiddler("ColorPalette");
-		if (title != "(default)")
+		if (!tiddlyspace && (title != "(default)")) {
+			store.deleteTiddler("ColorPalette");
 			store.saveTiddler("ColorPalette","ColorPalette",store.getTiddlerText(title),
-					config.options.txtUserName,undefined,"");
+				config.options.txtUserName,undefined,"");
+		}
+		else if (tiddlyspace && (title != "(default)")) {
+			var tiddler = store.getTiddler('ColorPalette');
+
+			tiddler.fields["server.workspace"] = "bags/%0_private".format([tiddlyspace.currentSpace.name]);
+			tiddler.fields["server.page.revision"] = "false";		// hacky 
+
+		//	tiddler.fields["server.permissions"] = "read, write, create"; // no delete
+			delete tiddler.fields["server.title"];
+			delete tiddler.fields["server.etag"];
+			// special handling for pseudo-shadow tiddlers
+			if(tiddlyspace.coreBags.contains(tiddler.fields["server.bag"])) {
+				tiddler.tags.remove("excludeLists");
+			}
+			store.saveTiddler("ColorPalette","ColorPalette", store.getTiddlerText(title),
+				config.options.txtUserName,undefined,tiddler.tags, tiddler.fields);
+		}
+		
 		refreshAll();
-		if(config.options.chkAutoSave)
+		if(config.options.chkAutoSave) {
 			saveChanges(true);
-	}
+		}
+					
+	} // if (title != "")
 };
 
 config.macros.applyTheme = {
 	label: "apply",
-	prompt: "apply this theme or palette" // i'm lazy
+	prompt: "apply this theme or palette: " // i'm lazy
 };
 
 config.macros.applyTheme.handler = function(place,macroName,params,wikifier,paramString,tiddler) {
+	var label = params[1] ? params[1] : this.label;
 	var useTiddler = params[0] ? params[0] : tiddler.title;
-	var btn = createTiddlyButton(place,this.label,this.prompt,config.macros.selectTheme.onClickTheme);
+	var btn = createTiddlyButton(place,label,this.prompt+useTiddler,config.macros.selectTheme.onClickTheme);
 	btn.setAttribute('theme',useTiddler);
 	btn.setAttribute('mode',macroName=="applyTheme"?"selectTheme":"selectPalette"); // a bit untidy here
 }
@@ -110,4 +142,3 @@ config.macros.refreshAll = { handler: function(place,macroName,params,wikifier,p
 }};
 
 //}}}
-

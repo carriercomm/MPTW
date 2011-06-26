@@ -1,7 +1,7 @@
 /***
 |Name:|SelectThemePluginMP|
 |Description:|Lets you easily switch theme and palette|
-|Version:|1.0.1 ($Rev: 3646 $) MP 02|
+|Version:|1.0.1 ($Rev: 3646 $) MP 03 (2011.06.26)|
 |Date:|$Date: 2008-02-27 02:34:38 +1000 (Wed, 27 Feb 2008) $|
 |OriginalSource:|http://mptw.tiddlyspot.com/#SelectThemePlugin|
 |OriginalAuthor:|Simon Baird <simon.baird@gmail.com>|
@@ -89,6 +89,7 @@ config.macros.selectTheme.onClickTheme = function(ev)
 config.macros.selectTheme.updatePalette = function(title)
 {
 	var tiddlyspace = config.extensions.tiddlyspace;
+	var co = config.options;
 
 	if (title != "") {
 		if (!tiddlyspace && (title != "(default)")) {
@@ -98,17 +99,21 @@ config.macros.selectTheme.updatePalette = function(title)
 		}
 		else if (tiddlyspace && (title != "(default)")) {
 			var tiddler = store.getTiddler('ColorPalette');
+			var bag = tiddler.fields["server.bag"];
+			var cs = tiddlyspace.currentSpace.name;
+			
+			if ( (bag != cs+"_private") && (bag != cs+"_public") ) {
+				tiddler.fields["server.workspace"] = (co.chkPrivateMode) ? "bags/%0_private".format([cs]) : "bags/%0_public".format([cs]);
+				// remove all tags eg: "excludeLists, ..Search "
+				tiddler.tags = [];
+			}
 
-			tiddler.fields["server.workspace"] = "bags/%0_private".format([tiddlyspace.currentSpace.name]);
 			tiddler.fields["server.page.revision"] = "false";		// hacky 
 
-		//	tiddler.fields["server.permissions"] = "read, write, create"; // no delete
+			delete tiddler.fields["server.permissions"];
 			delete tiddler.fields["server.title"];
 			delete tiddler.fields["server.etag"];
-			// special handling for pseudo-shadow tiddlers
-			if(tiddlyspace.coreBags.contains(tiddler.fields["server.bag"])) {
-				tiddler.tags.remove("excludeLists");
-			}
+
 			store.saveTiddler("ColorPalette","ColorPalette", store.getTiddlerText(title),
 				config.options.txtUserName,undefined,tiddler.tags, tiddler.fields);
 		}
@@ -117,7 +122,6 @@ config.macros.selectTheme.updatePalette = function(title)
 		if(config.options.chkAutoSave) {
 			saveChanges(true);
 		}
-					
 	} // if (title != "")
 };
 
